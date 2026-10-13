@@ -47,8 +47,8 @@ resource "aws_route_table" "rt" {
 
   # Define a route that sends traffic to the Internet Gateway
   route {
-    cidr_block = "0.0.0.0/0"  # Destination for all Internet traffic
-    gateway_id = aws_internet_gateway.igw.id  # Route traffic through the Internet Gateway
+    cidr_block = "0.0.0.0/0"                 # Destination for all Internet traffic
+    gateway_id = aws_internet_gateway.igw.id # Route traffic through the Internet Gateway
   }
 
   # Tags for the route table, with the name taken from a variable
@@ -76,7 +76,7 @@ resource "aws_security_group" "security-group" {
   ingress = [
     # Loop through a list of ports and define rules for each
     for port in [22, 8080, 9000, 9090, 80] : {
-      description      = "TLS from VPC"  # Description for the rule
+      description      = "TLS from VPC" # Description for the rule
       from_port        = port           # Port range for ingress
       to_port          = port           # Port range for ingress
       protocol         = "tcp"          # TCP protocol
@@ -92,8 +92,8 @@ resource "aws_security_group" "security-group" {
   egress {
     from_port   = 0
     to_port     = 0
-    protocol    = "-1"  # All protocols
-    cidr_blocks = ["0.0.0.0/0"]  # Allow outbound traffic to any destination
+    protocol    = "-1"          # All protocols
+    cidr_blocks = ["0.0.0.0/0"] # Allow outbound traffic to any destination
   }
 
   # Tags for the security group, with the name taken from a variable

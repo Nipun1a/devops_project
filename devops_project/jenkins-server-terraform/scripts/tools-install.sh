@@ -1,76 +1,95 @@
 #!/bin/bash
 # For Ubuntu 22.04
-# Intsalling Java
-sudo apt update -y
-sudo apt install openjdk-17-jre -y
-sudo apt install openjdk-17-jdk -y
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+# Give package installation and services additional memory headroom.
+if [ ! -f /swapfile ]; then
+  fallocate -l 2G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
+# Install prerequisites before using curl, unzip, or gpg.
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl wget unzip gnupg lsb-release fontconfig
+
+# Installing Java for current Jenkins LTS.
+sudo apt-get install -y openjdk-21-jdk
 java --version
 
 # Installing Jenkins
-curl -fsSL https://pkg.jenkins.io/debian/jenkins.io-2023.key | sudo tee \
+curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2026.key | sudo tee \
   /usr/share/keyrings/jenkins-keyring.asc > /dev/null
 echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
-  https://pkg.jenkins.io/debian binary/ | sudo tee \
+  https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
   /etc/apt/sources.list.d/jenkins.list > /dev/null
 sudo apt-get update -y
 sudo apt-get install jenkins -y
 
+sudo mkdir -p /etc/systemd/system/jenkins.service.d
+printf '[Service]\nEnvironment="JAVA_OPTS=-Djava.awt.headless=true -Xms128m -Xmx512m"\n' | sudo tee /etc/systemd/system/jenkins.service.d/memory.conf > /dev/null
+sudo systemctl daemon-reload
+
 # Installing Docker 
-#!/bin/bash
 sudo apt update
 sudo apt install docker.io -y
 sudo usermod -aG docker jenkins
 sudo usermod -aG docker ubuntu
-sudo systemctl restart docker
-sudo chmod 777 /var/run/docker.sock
+sudo systemctl enable --now docker jenkins
+# Restart Jenkins so it picks up membership in the docker group.
+sudo systemctl restart jenkins
 
 # If you don't want to install Jenkins, you can create a container of Jenkins
 # docker run -d -p 8080:8080 -p 50000:50000 --name jenkins-container jenkins/jenkins:lts
 
 # Run Docker Container of Sonarqube
-#!/bin/bash
-docker run -d  --name sonar -p 9000:9000 sonarqube:lts-community
+if [ "${install_sonarqube}" = "true" ]; then
+${sonar_install_script}
+fi
 
 
 # Installing AWS CLI
-#!/bin/bash
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-sudo apt install unzip -y
-unzip awscliv2.zip
-sudo ./aws/install
+install_dir=$(mktemp -d)
+cd "$install_dir"
+curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip -q awscliv2.zip
+sudo ./aws/install --update
 
 # Installing Kubectl
-#!/bin/bash
 sudo apt update
 sudo apt install curl -y
-sudo curl -LO "https://dl.k8s.io/release/v1.28.4/bin/linux/amd64/kubectl"
-sudo chmod +x kubectl
-sudo mv kubectl /usr/local/bin/
+# Pin this to a version within one minor version of your EKS cluster.
+kubectl_version=$(curl -fsSL https://dl.k8s.io/release/stable.txt)
+curl -fsSLO "https://dl.k8s.io/release/$kubectl_version/bin/linux/amd64/kubectl"
+curl -fsSLO "https://dl.k8s.io/release/$kubectl_version/bin/linux/amd64/kubectl.sha256"
+echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+sudo install -m 0755 kubectl /usr/local/bin/kubectl
 kubectl version --client
 
 
 # Installing eksctl
-#! /bin/bash
-curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-sudo mv /tmp/eksctl /usr/local/bin
+curl --fail --silent --show-error --location "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C "$install_dir"
+sudo install -m 0755 "$install_dir/eksctl" /usr/local/bin/eksctl
 eksctl version
 
 # Installing Terraform
-#!/bin/bash
-wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
 sudo apt update
 sudo apt install terraform -y
 
 # Installing Trivy
-#!/bin/bash
 sudo apt-get install wget apt-transport-https gnupg lsb-release -y
-wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+curl -fsSL https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/trivy.gpg
+echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
 sudo apt update
 sudo apt install trivy -y
 
 
 # Intalling Helm
-#! /bin/bash
 sudo snap install helm --classic
+
+touch /var/lib/jenkins-bootstrap-complete

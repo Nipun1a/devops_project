@@ -1,0 +1,8 @@
+*.pem
+*.pem.pub
+*.tfplan
+tfplan
+terraform.tfstate*
+.terraform/
+.ssh-known-hosts
+.jenkins-verify-key*

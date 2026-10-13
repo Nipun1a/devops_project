@@ -11,8 +11,9 @@ terraform {
     # The key (path) within the S3 bucket for storing the state file.
     key = "three-tier-devdecops-project/jenkins-server-terraform/terraform.tfstate"
 
-    # Use native S3 state locking instead of the deprecated DynamoDB locking parameter.
-    use_lockfile = true
+    # Existing DynamoDB lock table in eu-north-1; partition key: LockID (String).
+    # DynamoDB locking is deprecated; migrate to use_lockfile for new setups.
+    dynamodb_table = "lock-files"
 
     # Ensures the state file is encrypted at rest in the S3 bucket.
     encrypt = true

@@ -43,7 +43,7 @@ variable "instance_name" {
 
 variable "instance_type" {
   description = "Type of EC2 instance"
-  default     = "t3.micro"
+  default     = "m7i-flex.large"
 }
 
 
@@ -52,6 +52,12 @@ variable "instance_type" {
 variable "key_name" {
   description = "The name of the SSH key pair to access the instance."
   default     = "devsecops-project"
+}
+
+variable "install_sonarqube" {
+  description = "Install SonarQube alongside Jenkins only on an instance with sufficient memory."
+  type        = bool
+  default     = true
 }
 
 # IAM Role
