@@ -1,0 +1,7 @@
+clusterName: three-tier-k8s-eks-cluster
+region: ap-south-1
+vpcId: vpc-051208aafa2794a0c
+replicaCount: 2
+serviceAccount:
+  create: false
+  name: aws-load-balancer-controller

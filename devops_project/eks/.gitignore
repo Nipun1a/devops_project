@@ -1,0 +1,6 @@
+kubeconfig
+*.log
+tools/
+helm-windows.zip
+monitoring-chart-defaults.txt
+monitoring-rendered.yaml
